@@ -95,7 +95,6 @@ def verify_token_and_get_user_info(token: str):
         else:
             raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        logging.error(f"Token verification error: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def get_user_from_token(db: Session, token: str):
@@ -137,17 +136,16 @@ async def auth(request: Request):
     logging.debug(f"Received state: {received_state}")
     if stored_state != received_state:
         logging.error("Mismatching state")
-        raise HTTPException(status_code=400, detail="Mismatching state")
+        return templates.TemplateResponse('home.html', {'request': request, 'error': "Mismatching state"})
     try:
         token = await oauth.google.authorize_access_token(request)
         logging.debug(f"Received token: {token}")
     except OAuthError as e:
         logging.error(f"OAuthError: {e.error}")
-        return templates.TemplateResponse('error.html', {'request': request, 'error': e.error})
+        return templates.TemplateResponse('home.html', {'request': request, 'error': e.error})
     user = token.get('userinfo')
     if user:
         request.session['user'] = dict(user)
-        request.session['token'] = token['access_token']
         # Save user to the database if not already present
         db = next(get_db())
         existing_user = crud.get_user_by_email(db, user['email'])
@@ -165,22 +163,20 @@ async def auth(request: Request):
 @app.get('/logout')
 def logout(request: Request):
     request.session.pop('user', None)
-    request.session.pop('token', None)
     return RedirectResponse('/')
 
 @app.post("/watchlists/")
 def create_watchlist(symbol: str, list_name: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    logging.debug(f"Token received: {token}")
     user = get_user_from_token(db, token)
     if user:
         watchlist_entry = crud.create_watchlist(db, user.id, symbol, list_name)
         return watchlist_entry
     raise HTTPException(status_code=401, detail="Not authenticated")
 
-@app.get("/watchlists/", response_model=List[schemas.Watchlist])
+@app.get("/watchlist/", response_model=List[schemas.Watchlist])
 def list_watchlist(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    logging.debug(f"Token received: {token}")
     user = get_user_from_token(db, token)
+    print(user)
     if user:
         watchlist_entries = crud.get_watchlist_by_user_id(db, user.id)
         return watchlist_entries
@@ -188,7 +184,6 @@ def list_watchlist(db: Session = Depends(get_db), token: str = Depends(oauth2_sc
 
 @app.get("/watchlists/{id}", response_model=schemas.Watchlist)
 def get_watchlist_entry(id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    logging.debug(f"Token received: {token}")
     user = get_user_from_token(db, token)
     if user:
         watchlist_entry = crud.get_watchlist_by_id(db, id)
@@ -199,7 +194,6 @@ def get_watchlist_entry(id: int, db: Session = Depends(get_db), token: str = Dep
 
 @app.put("/watchlists/{id}", response_model=schemas.Watchlist)
 def update_watchlist_entry(id: int, symbol: str, list_name: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    logging.debug(f"Token received: {token}")
     user = get_user_from_token(db, token)
     if user:
         watchlist_entry = crud.get_watchlist_by_id(db, id)
@@ -211,7 +205,6 @@ def update_watchlist_entry(id: int, symbol: str, list_name: str, db: Session = D
 
 @app.delete("/watchlists/{id}", response_model=schemas.Watchlist)
 def delete_watchlist_entry(id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    logging.debug(f"Token received: {token}")
     user = get_user_from_token(db, token)
     if user:
         watchlist_entry = crud.get_watchlist_by_id(db, id)

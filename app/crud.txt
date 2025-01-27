@@ -1,0 +1,51 @@
+from sqlalchemy.orm import Session
+from app import models
+
+# Function to get user by email (from Google OAuth)
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
+
+# Function to create a new user in the database
+def create_user(db: Session, username: str, email: str, oauth_id: str):
+    db_user = models.User(username=username, email=email, oauth_id=oauth_id)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+# Function to get watchlists for a specific user
+def get_watchlists_by_user(db: Session, user_id: int):
+    return db.query(models.Watchlist).filter(models.Watchlist.user_id == user_id).all()
+
+# Function to create a new watchlist entry
+def create_watchlist(db: Session, user_id: int, symbol: str, list_name: str):
+    db_watchlist = models.Watchlist(user_id=user_id, symbol=symbol, list_name=list_name)
+    db.add(db_watchlist)
+    db.commit()
+    db.refresh(db_watchlist)
+    return db_watchlist
+
+# Function to get a specific watchlist entry by its ID
+def get_watchlist_by_id(db: Session, id: int):
+    return db.query(models.Watchlist).filter(models.Watchlist.id == id).first()
+
+# Function to update a watchlist entry
+def update_watchlist(db: Session, id: int, symbol: str, list_name: str):
+    db_watchlist = db.query(models.Watchlist).filter(models.Watchlist.id == id).first()
+    if db_watchlist:
+        db_watchlist.symbol = symbol
+        db_watchlist.list_name = list_name
+        db.commit()
+        db.refresh(db_watchlist)
+        return db_watchlist
+    return None
+
+# Function to delete a watchlist entry
+def delete_watchlist(db: Session, id: int):
+    db_watchlist = db.query(models.Watchlist).filter(models.Watchlist.id == id).first()
+    if db_watchlist:
+        db.delete(db_watchlist)
+        db.commit()
+        return db_watchlist
+    return None
+
