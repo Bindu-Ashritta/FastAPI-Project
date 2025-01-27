@@ -1,4 +1,3 @@
-```markdown
 # Project Documentation
 
 ## Project Overview
